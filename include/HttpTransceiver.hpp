@@ -1,9 +1,3 @@
-/*
- * HttpTransceiver отвечает за взаимодействие модуля обрабатывающего
- * входящий (IncomingHttpTrafficHandler) и исходящий (OutgoingHttpTrafficManagement) трафик.
- *
- */
-
 #pragma once
 
 #include <QObject>

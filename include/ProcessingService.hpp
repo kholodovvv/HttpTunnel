@@ -1,9 +1,3 @@
-/*
- * ProcessingService отвечает за взаимодействие пользователя с программой.
- * LoopProcessCommand цикл ожидающий команд пользователя.
- *
- */
-
 #pragma once
 
 #include <QObject>
@@ -35,17 +29,18 @@ private slots:
     void slotError(const QString &message);
 
 public slots:
-    void runService();
-    void stopService();
-    void restartService();
-    void exitService();
+    void slotRunService();
+    void slotStopService();
+    void slotRestartService();
+    void slotExitService();
+    void slotFinishedTestingProxy();
 
 private:
     std::shared_ptr<SettingsLoader> _settingsLoader;
     QPair<QStringList, QStringList> _listProxyServers;
     std::shared_ptr<HttpTransceiver> _httpTranseiver;
-    std::shared_ptr<QThread> thread;
-    std::shared_ptr<LoopProcessCommand> mainLoop;
+    std::unique_ptr<QThread> _threadLoopProcessCommand;
+    std::unique_ptr<LoopProcessCommand> _loopProcessCommand;
 };
 
 class LoopProcessCommand : public QObject
@@ -53,7 +48,7 @@ class LoopProcessCommand : public QObject
     Q_OBJECT
 
 public:
-    explicit LoopProcessCommand(QObject* parent = nullptr);
+    explicit LoopProcessCommand();
     ~LoopProcessCommand();
 
 signals:

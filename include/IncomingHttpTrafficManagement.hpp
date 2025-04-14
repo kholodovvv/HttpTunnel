@@ -1,9 +1,3 @@
-/*
- * IncomingHttpTrafficHandler отвечает за приём Tcp пакетов от клиента
- * и возвращает ответ на запрос от сервера
- *
- */
-
 #pragma once
 
 #include <QObject>

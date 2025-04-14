@@ -1,7 +1,3 @@
-/*
- * Logger отвечает за запись логов в файл
- */
-
 #pragma once
 
 #include <qloggingcategory.h>

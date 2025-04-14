@@ -54,9 +54,7 @@ void IncomingHttpTrafficHandler::sendPackages(QTcpSocket* socket, const QByteArr
 {
     if (socket) {
         if (socket->isOpen() && socket->state() == QTcpSocket::ConnectedState) {
-            if(socket->write(package, package.size()) == -1){
-                qWarning() << "The data may not have reached the client!";
-            }
+            socket->write(package, package.size());
 		}
 	}
 
@@ -64,13 +62,15 @@ void IncomingHttpTrafficHandler::sendPackages(QTcpSocket* socket, const QByteArr
 
 void IncomingHttpTrafficHandler::destroyConnection(QTcpSocket* socket)
 {
-    int idxSocket = _clientsList.indexOf(socket);
+	if (socket) {
+		int idxSocket = _clientsList.indexOf(socket);
 
-	if (idxSocket > -1) {
-		_clientsList.removeAt(idxSocket);
+		if (idxSocket > -1) {
+			_clientsList.removeAt(idxSocket);
+		}
+
+		socket->deleteLater();
 	}
-
-    socket->deleteLater();
 }
 
 void IncomingHttpTrafficHandler::desroyAllConnections()
@@ -81,7 +81,7 @@ void IncomingHttpTrafficHandler::desroyAllConnections()
 	
     for (QTcpSocket* client : _clientsList) {
         if (client->state() == QTcpSocket::ConnectedState) {
-			client->abort();
+			client->close();
 
             QThread::sleep(1);
 
@@ -150,18 +150,22 @@ void IncomingHttpTrafficHandler::slotDestroyConnection()
 
 void IncomingHttpTrafficHandler::slotReceptionData(QTcpSocket* socket, const QByteArray &package)
 {
-    if (!package.isEmpty()) {			//Прием данных от менеджера исходящего трафика и отравка их обратно клиенту
-        sendPackages(socket, package);
-        socket->close();
+	if (socket) {
+		if (!package.isEmpty()) {			//Прием данных от менеджера исходящего трафика
+			sendPackages(socket, package);
+			socket->close();
+		}
 	}
 }
 
 void IncomingHttpTrafficHandler::addToSocketList(QTcpSocket* socket)
 {
-	_clientsList.append(socket);
+	if (socket) {
+		_clientsList.append(socket);
 
-    connect(socket, &QTcpSocket::readyRead, this, &IncomingHttpTrafficHandler::slotReadData);
-    connect(socket, &QTcpSocket::disconnected, this, &IncomingHttpTrafficHandler::slotDestroyConnection);
+		connect(socket, &QTcpSocket::readyRead, this, &IncomingHttpTrafficHandler::slotReadData);
+		connect(socket, &QTcpSocket::disconnected, this, &IncomingHttpTrafficHandler::slotDestroyConnection);
+	}
 }
 
 void IncomingHttpTrafficHandler::slotNewConnection()

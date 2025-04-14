@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
     qInfo() << "Launching the program!";
 
     ProcessingService procService;
-    procService.runService();
+    procService.slotRunService();
     
     return a.exec();
 }

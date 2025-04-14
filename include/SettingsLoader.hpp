@@ -1,9 +1,3 @@
-/*
- * SettingsLoader отвечает за загрузку списков прокси серверов
- * из txt или json файла
- *
- */
-
 #pragma once
 
 #include <memory>

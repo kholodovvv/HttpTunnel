@@ -1,5 +1,7 @@
 #include "include/HttpTransceiver.hpp"
 
+#define millisecond 1000
+
 HttpTransceiver::HttpTransceiver(QObject* parent) : QObject(parent)
 {
     _inHttpTrafficHandler = std::make_shared<IncomingHttpTrafficHandler>();
@@ -44,7 +46,7 @@ void HttpTransceiver::run()
     }
 
     if (!_listProxyServers.first.isEmpty() && _timeIntervalChecksConnection > 0)
-        _timerCheckNetwork->start(_timeIntervalChecksConnection * 1000);
+        _timerCheckNetwork->start(_timeIntervalChecksConnection);
 
     _outHttpTrafficHandler->run();
     _inHttpTrafficHandler->run();
@@ -74,8 +76,8 @@ void HttpTransceiver::setSettings(const QPair<QStringList, QStringList> &listPro
     _listProxyServers = listProxy;
     _inHttpTrafficHandler->setPortListen(portListen);
     _outHttpTrafficHandler->setMaxTimeWaitConnectingProxyServer(maxTimeWaitConnectingProxyServer);
-    _maxTimeWaitConnectingProxyServer = maxTimeWaitConnectingProxyServer;
-    _timeIntervalChecksConnection = timeIntervalChecksConnection;
+    _maxTimeWaitConnectingProxyServer = maxTimeWaitConnectingProxyServer * millisecond;
+    _timeIntervalChecksConnection = timeIntervalChecksConnection * millisecond;
 }
 
 void HttpTransceiver::slotProcessServiceMessages(const QString &message)

@@ -1,9 +1,3 @@
-/*
- * OutgoingHttpTrafficManagement отвечает за отправку запросов (GET, POST)
- * web-серверу через прокси или без его использования
- *
- */
-
 #pragma once
 
 #include <QObject>

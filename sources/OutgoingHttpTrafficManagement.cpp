@@ -5,6 +5,8 @@
 #include <QNetworkRequest>
 #include <QDebug>
 
+#define maxCapacityVectorDataCollection 100
+
 OutgoingHttpTrafficHandler::OutgoingHttpTrafficHandler(QObject *parent):
     QObject(parent)
 {
@@ -126,12 +128,16 @@ void OutgoingHttpTrafficHandler::setProxy(const QString &address, const uint &po
 
     _counterResponses = 0;
     _counterRequests = 0;
+
+    if (!_vecResponseTime.empty())
+        _vecResponseTime.clear();
 }
 
 void OutgoingHttpTrafficHandler::slotNewConnection(QTcpSocket* socket, const QByteArray &package)
 {
     std::shared_ptr<QNetworkAccessManager> accessManagerPtr = std::make_shared<QNetworkAccessManager>(new QNetworkAccessManager(this));
-
+    accessManagerPtr->setAutoDeleteReplies(true);
+    
     if (socket && !package.isEmpty()) {
         for (auto item : _listConnections) {
             if (item.first == socket) {
@@ -175,24 +181,28 @@ void OutgoingHttpTrafficHandler::slotReadData(QNetworkReply* reply)
         }
 
         if (!data.isEmpty()) {
-            _counterResponses += 1;
 
             readingData(socket, data);
-
-            if (_timerWaitingResponse) {
-                if (_vecResponseTime.length() < 10) {
-                    _vecResponseTime.append(_timerWaitingResponse->elapsed());
-                    _isStartedTimer = false;
-                }
-                else {
-                    calculatingResponseTime();
-                }
-            }
 
         }else if(reply->error() == QNetworkReply::NetworkError()){
    
             qWarning() << reply->errorString();
         }
+
+        _counterResponses += 1;
+
+        if (_timerWaitingResponse) {
+            if (_vecResponseTime.length() < maxCapacityVectorDataCollection) {
+                _vecResponseTime.append(_timerWaitingResponse->elapsed());
+                _isStartedTimer = false;
+            }
+            else {
+                calculatingResponseTime();
+            }
+        }
+
+        if (reply->isRunning())
+            reply->abort();
 
         destroyReply(reply);
     }
@@ -201,16 +211,9 @@ void OutgoingHttpTrafficHandler::slotReadData(QNetworkReply* reply)
 void OutgoingHttpTrafficHandler::destroyReply(QNetworkReply* replyPtr)
 {
     int idxReply = -1;
-    QTcpSocket *socket = nullptr;
 
     for (auto item : _listReply) {
         if (item.second == replyPtr) {
-            socket = item.first;
-
-            if (replyPtr) {
-                replyPtr->abort();
-                replyPtr->deleteLater();
-            }
 
             idxReply = _listReply.indexOf(item);
         }
@@ -271,10 +274,6 @@ void OutgoingHttpTrafficHandler::sendData(QTcpSocket* socket, const QByteArray &
 void OutgoingHttpTrafficHandler::destroyAllConnections()
 {
     if (!_listReply.empty()) {
-        for (auto item : _listReply) {
-            if(item.second)
-                item.second->deleteLater();
-        }
 
         _listReply.clear();
     }

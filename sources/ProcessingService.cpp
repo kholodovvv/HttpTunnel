@@ -14,94 +14,104 @@ ProcessingService::ProcessingService(QObject *parent): QObject(parent)
 
     connect(_httpTranseiver.get(), &HttpTransceiver::signalRunning, this, &ProcessingService::slotHttpServiceRunning);
     connect(_httpTranseiver.get(), &HttpTransceiver::signalStopped, this, &ProcessingService::slotHttpServiceStopped);
+    connect(_httpTranseiver.get(), &HttpTransceiver::signalTestingProxyFinished, this, &ProcessingService::slotFinishedTestingProxy);
     connect(_httpTranseiver.get(), &HttpTransceiver::signalMessage, this, &ProcessingService::slotShowUserMessage);
     connect(_httpTranseiver.get(), &HttpTransceiver::signalError, this, &ProcessingService::slotError);
 
-    thread = std::make_shared<QThread>();
-    mainLoop = std::make_shared<LoopProcessCommand>();
+    _threadLoopProcessCommand = std::make_unique<QThread>();
+    _loopProcessCommand = std::make_unique<LoopProcessCommand>();
 
-    if(thread){
-        mainLoop->moveToThread(thread.get());
-        connect(thread.get(), &QThread::started, mainLoop.get(), &LoopProcessCommand::slotLoopWaitCommand);
-        connect(mainLoop.get(), &LoopProcessCommand::runService, this, &ProcessingService::runService);
-        connect(mainLoop.get(), &LoopProcessCommand::stopService, this, &ProcessingService::stopService);
-        connect(mainLoop.get(), &LoopProcessCommand::restartService, this, &ProcessingService::restartService);
-        connect(mainLoop.get(), &LoopProcessCommand::exitService, this, &ProcessingService::exitService);
+    if(_threadLoopProcessCommand && _loopProcessCommand){
+        _loopProcessCommand->moveToThread(_threadLoopProcessCommand.get());
+        connect(_threadLoopProcessCommand.get(), &QThread::started, _loopProcessCommand.get(), &LoopProcessCommand::slotLoopWaitCommand, Qt::AutoConnection);
+        connect(_loopProcessCommand.get(), &LoopProcessCommand::runService, this, &ProcessingService::slotRunService, Qt::AutoConnection);
+        connect(_loopProcessCommand.get(), &LoopProcessCommand::stopService, this, &ProcessingService::slotStopService, Qt::AutoConnection);
+        connect(_loopProcessCommand.get(), &LoopProcessCommand::restartService, this, &ProcessingService::slotRestartService, Qt::AutoConnection);
+        connect(_loopProcessCommand.get(), &LoopProcessCommand::exitService, this, &ProcessingService::slotExitService, Qt::AutoConnection);
     }
 }
 
-void ProcessingService::runService()
+void ProcessingService::slotRunService()
 {
     QPair<QStringList, QStringList> proxyServersList;
 
-    if (!_settingsLoader->isLoadingSettings()) {
-        slotShowUserMessage(QString("Couldn't load list proxy servers"));
-        qWarning() << "Couldn't load list proxy servers";
+    if (_httpTranseiver && _httpTranseiver->getState() == HttpTransceiverState::notRunning) {
 
-    }
-    else {
-        slotShowUserMessage(QString("The list of proxy servers has been loaded successfully ..."));
-        qInfo() << "The list of proxy servers has been loaded successfully";
+        if (!_settingsLoader->isLoadingSettings()) {
+            slotShowUserMessage(QString("Couldn't load list proxy servers"));
+            qInfo() << "Couldn't load list proxy servers";
 
-    }
+        }
+        else {
+            slotShowUserMessage(QString("The list of proxy servers has been loaded successfully ..."));
+            qInfo() << "The list of proxy servers has been loaded successfully";
 
-    if (_httpTranseiver) {
+        }
+
         proxyServersList = _settingsLoader->getProxyServersList();
 
         _httpTranseiver->setTestingProxy(false);
-        _httpTranseiver->setSettings(proxyServersList, 7777, 50000, 300);
+        _httpTranseiver->setSettings(proxyServersList, 7777, 60, 300);
 
         slotShowUserMessage(QString("The http service is being started, please wait ..."));
-        qInfo() << "Run http service";
+        qInfo() << "Startup http service ...";
         _httpTranseiver->run();
+        
+    }
+    else {
+        slotShowUserMessage(QString("The service is already running or has not been stopped yet!"));
     }
 }
 
-void ProcessingService::stopService()
+void ProcessingService::slotStopService()
 {
     if (_httpTranseiver) {
         if (_httpTranseiver->getState() != HttpTransceiverState::notRunning)
             _httpTranseiver->stop();
     }
+    else {
+        slotShowUserMessage(QString("The http service has already been stopped ..."));
+    }
 }
 
-void ProcessingService::restartService()
+void ProcessingService::slotRestartService()
 {
     if (_httpTranseiver) {
         if (_httpTranseiver->getState() != HttpTransceiverState::notRunning)
             _httpTranseiver->stop();
-
-        while (_httpTranseiver->getState() != HttpTransceiverState::notRunning)
-        {
-            QThread::sleep(5);
-        }
     }
 
-    runService();
+    if (_httpTranseiver->getState() == HttpTransceiverState::notRunning) {
+        slotRunService();
+    }
+    else {
+        slotShowUserMessage(QString("The service could not stop in time and therefore was not started. "
+                                    "Try starting the service a little later with the 'start' command."));
+        qWarning() << "The service could not stop in time and therefore was not started.";
+    }
+
 }
 
-void ProcessingService::exitService()
+void ProcessingService::slotExitService()
 {
     if (_httpTranseiver) {
         if (_httpTranseiver->getState() != HttpTransceiverState::notRunning) {
 
             _httpTranseiver->stop();
-
-            while (_httpTranseiver->getState() != HttpTransceiverState::notRunning)
-            {
-                QThread::sleep(5);
-            }
-
-        }
-        else {
-
-            if (thread->isRunning()) {
-                thread->quit();
-            }
         }
     }
 
+    if (_threadLoopProcessCommand)
+        if (_threadLoopProcessCommand->isRunning())
+            _threadLoopProcessCommand->quit();
+
     exit(0);
+}
+
+void ProcessingService::slotFinishedTestingProxy()
+{
+    slotShowUserMessage(QString("Testing of proxy servers is completed!"));
+    qInfo() << "Testing of proxy servers is completed!";
 }
 
 ProcessingService::~ProcessingService()
@@ -151,9 +161,9 @@ void ProcessingService::slotHttpServiceRunning(const int &port)
     slotShowUserMessage(QString("The Http service is running on the port %1").arg(port));
     qInfo() << "The Http service is running on the port " << port;
 
-    if(thread){
-        if(!thread->isRunning())
-            thread->start();
+    if(_threadLoopProcessCommand){
+        if(!_threadLoopProcessCommand->isRunning())
+            _threadLoopProcessCommand->start();
     }
 }
 
@@ -173,15 +183,9 @@ void ProcessingService::slotShowUserMessage(const QString &message)
 void ProcessingService::slotError(const QString &message)
 {
     slotShowUserMessage(message);
-    exitService();
+    slotExitService();
 }
 
+LoopProcessCommand::LoopProcessCommand(){ }
 
-LoopProcessCommand::LoopProcessCommand(QObject* parent) : QObject(parent)
-{
-
-}
-
-LoopProcessCommand::~LoopProcessCommand()
-{
-}
+LoopProcessCommand::~LoopProcessCommand(){ }
