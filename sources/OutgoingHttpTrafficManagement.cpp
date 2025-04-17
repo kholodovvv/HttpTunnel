@@ -18,7 +18,7 @@ OutgoingHttpTrafficHandler::~OutgoingHttpTrafficHandler()
 
 }
 
-QPair<bool, quint64> OutgoingHttpTrafficHandler::isConnected(const QString &hostName, const QString &port)
+QPair<bool, quint64> OutgoingHttpTrafficHandler::isConnected(const QString &hostName, const uint &port)
 {
     QElapsedTimer elapsedTimer;
     QTimer timer;
@@ -28,9 +28,9 @@ QPair<bool, quint64> OutgoingHttpTrafficHandler::isConnected(const QString &host
     QNetworkProxy proxy;
     proxy.setType(QNetworkProxy::HttpProxy);
     proxy.setHostName(hostName);
-    proxy.setPort(port.toInt());
+    proxy.setPort(port);
 
-    timer.setInterval(_maxTimeWaitConnectingProxyServer);
+    timer.setInterval(_maxTimeWaitReply);
     timer.setSingleShot(true);
 
     std::shared_ptr<QNetworkAccessManager> accessManagerPtr;
@@ -71,9 +71,9 @@ QPair<bool, quint64> OutgoingHttpTrafficHandler::isConnected(const QString &host
     return answer;
 }
 
-void OutgoingHttpTrafficHandler::setMaxTimeWaitConnectingProxyServer(const uint &time)
+void OutgoingHttpTrafficHandler::setMaxTimeWaitReply(const uint &time)
 {
-    _maxTimeWaitConnectingProxyServer = time;
+    _maxTimeWaitReply = time;
 }
 
 uint& OutgoingHttpTrafficHandler::getResponsesCounter()

@@ -20,9 +20,9 @@ public:
     explicit OutgoingHttpTrafficHandler(QObject* parent = nullptr);
     ~OutgoingHttpTrafficHandler();
 
-    QPair<bool, quint64> isConnected(const QString &hostName, const QString &port);
+    QPair<bool, quint64> isConnected(const QString &hostName, const /*QString*/uint &port);
     void setProxy(const QString &address, const uint &port, const QString &userName, const QString &password);
-    void setMaxTimeWaitConnectingProxyServer(const uint &time);
+    void setMaxTimeWaitReply(const uint &time);
     uint& getResponsesCounter();
     uint& getRequestsCounter();
     quint64& getResponseTime();
@@ -50,7 +50,7 @@ private:
 
 private:
     std::shared_ptr<QNetworkProxy> _proxy;
-    uint _maxTimeWaitConnectingProxyServer;
+    uint _maxTimeWaitReply;
     QList<QPair<QTcpSocket*, std::shared_ptr<QNetworkAccessManager>>> _listConnections;
     QList<QPair<QTcpSocket*, QNetworkReply*>> _listReply;
     uint _counterResponses;

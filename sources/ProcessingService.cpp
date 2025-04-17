@@ -33,11 +33,24 @@ ProcessingService::ProcessingService(QObject *parent): QObject(parent)
 
 void ProcessingService::slotRunService()
 {
-    QPair<QStringList, QStringList> proxyServersList;
+    QVector<std::shared_ptr<ProxySettings>> vecProxySettings;
+
+    if (!_settings)
+        _settings = std::make_shared<Settings>();
 
     if (_httpTranseiver && _httpTranseiver->getState() == HttpTransceiverState::notRunning) {
+        
+        if (_settingsLoader) {
+            _settings = _settingsLoader->getProgramSettings();
+            vecProxySettings = _settingsLoader->getProxyServersList();
 
-        if (!_settingsLoader->isLoadingSettings()) {
+            if (!_settings) {
+                slotError("Couldn't load program settings");
+                qCritical() << "Couldn't load program settings";
+            }
+        }
+
+        if (vecProxySettings.isEmpty()) {
             slotShowUserMessage(QString("Couldn't load list proxy servers"));
             qInfo() << "Couldn't load list proxy servers";
 
@@ -48,10 +61,8 @@ void ProcessingService::slotRunService()
 
         }
 
-        proxyServersList = _settingsLoader->getProxyServersList();
-
-        _httpTranseiver->setTestingProxy(false);
-        _httpTranseiver->setSettings(proxyServersList, 7777, 60, 300);
+        _httpTranseiver->setTestingProxy(_settings->testingProxyServers);
+        _httpTranseiver->setSettings(vecProxySettings, _settings);
 
         slotShowUserMessage(QString("The http service is being started, please wait ..."));
         qInfo() << "Startup http service ...";

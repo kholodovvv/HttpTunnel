@@ -37,7 +37,7 @@ public slots:
 
 private:
     std::shared_ptr<SettingsLoader> _settingsLoader;
-    QPair<QStringList, QStringList> _listProxyServers;
+    std::shared_ptr<Settings> _settings;
     std::shared_ptr<HttpTransceiver> _httpTranseiver;
     std::unique_ptr<QThread> _threadLoopProcessCommand;
     std::unique_ptr<LoopProcessCommand> _loopProcessCommand;

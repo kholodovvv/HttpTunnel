@@ -2,12 +2,16 @@
 	"HttpProxyServers":[
 		{
 			"address": "98.154.74.22",
-			"port": "8080"
+			"port": 8080,
+			"user": "user",
+			"password": "pass"
 		},
 
 		{
 			"address": "64.85.22.22",
-			"port": "3120"
+			"port": 3120,
+			"user": "usr",
+			"password": "password"
 		}
 	]
 }

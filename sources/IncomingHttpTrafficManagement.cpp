@@ -41,7 +41,7 @@ void IncomingHttpTrafficHandler::run()
             emit signalError(_tcpServer->errorString());
 		}
 	}
-	
+
 }
 
 void IncomingHttpTrafficHandler::stop()

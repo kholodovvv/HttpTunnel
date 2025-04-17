@@ -10,6 +10,7 @@
 
 #include "include/IncomingHttpTrafficManagement.hpp"
 #include "include/OutgoingHttpTrafficManagement.hpp"
+#include "include/SettingsLoader.hpp"
 
 namespace  HttpTransceiverState {
     enum servicesState{ inProgress = 0, notRunning = 1 };
@@ -27,7 +28,7 @@ public:
     void stop();
     uint getState();
     void setTestingProxy(const bool &value);
-    void setSettings(const QPair<QStringList, QStringList> &listProxy, const uint &portListen, const uint &maxTimeWaitConnectingProxyServer, const uint &timeIntervalChecksConnection);
+    void setSettings(const QVector<std::shared_ptr<ProxySettings>> &vecProxySettings, std::shared_ptr<Settings> &settings);
 
 signals:
     void signalMessage(const QString &message);
@@ -54,9 +55,9 @@ private:
     uint _state = HttpTransceiverState::notRunning;
     uint _signalCounter = 0;
     bool _testingProxy = true;
-    QPair<QStringList, QStringList> _listProxyServers;
+    QVector<std::shared_ptr<ProxySettings>> _vecProxySettings;
     int _idxCurrentProxy = -1;
     std::shared_ptr<QTimer> _timerCheckNetwork;
-    uint _maxTimeWaitConnectingProxyServer = 5000;
+    uint _maxTimeWaitReply = 0;
     uint _timeIntervalChecksConnection = 0;
 };

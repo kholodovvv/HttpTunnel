@@ -31,3 +31,7 @@ add_executable(httptunnel
   )
 
 target_link_libraries(httptunnel Qt${QT_VERSION_MAJOR}::Core Qt${QT_VERSION_MAJOR}::Network)
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+				   COMMAND ${CMAKE_COMMAND} -E copy
+				   ${CMAKE_SOURCE_DIR}/settings.ini ${CMAKE_BINARY_DIR})

@@ -45,7 +45,7 @@ void HttpTransceiver::run()
         connect(_timerCheckNetwork.get(), &QTimer::timeout, this, &HttpTransceiver::slotNetworkDataCollection);
     }
 
-    if (!_listProxyServers.first.isEmpty() && _timeIntervalChecksConnection > 0)
+    if (!_vecProxySettings.isEmpty() && _timeIntervalChecksConnection > 0)
         _timerCheckNetwork->start(_timeIntervalChecksConnection);
 
     _outHttpTrafficHandler->run();
@@ -71,13 +71,13 @@ void HttpTransceiver::setTestingProxy(const bool &value)
     _testingProxy = value;
 }
 
-void HttpTransceiver::setSettings(const QPair<QStringList, QStringList> &listProxy, const uint &portListen, const uint &maxTimeWaitConnectingProxyServer, const uint &timeIntervalChecksConnection)
+void HttpTransceiver::setSettings(const QVector<std::shared_ptr<ProxySettings>> &vecProxySettings, std::shared_ptr<Settings> &settings)
 {
-    _listProxyServers = listProxy;
-    _inHttpTrafficHandler->setPortListen(portListen);
-    _outHttpTrafficHandler->setMaxTimeWaitConnectingProxyServer(maxTimeWaitConnectingProxyServer);
-    _maxTimeWaitConnectingProxyServer = maxTimeWaitConnectingProxyServer * millisecond;
-    _timeIntervalChecksConnection = timeIntervalChecksConnection * millisecond;
+    _vecProxySettings = vecProxySettings;
+    _inHttpTrafficHandler->setPortListen(settings->portListen);
+    _outHttpTrafficHandler->setMaxTimeWaitReply(settings->maxTimeWaitReply * millisecond);
+    _maxTimeWaitReply = settings->maxTimeWaitReply * millisecond;
+    _timeIntervalChecksConnection = settings->proxyVerificationInterval * millisecond;
 }
 
 void HttpTransceiver::slotProcessServiceMessages(const QString &message)
@@ -125,7 +125,7 @@ void HttpTransceiver::slotNetworkDataCollection()
 
         percentSuccessfulCon = (numberResponses / numberRequests) * 100;
 
-        if (percentSuccessfulCon < 60 || responseTime > _maxTimeWaitConnectingProxyServer) {
+        if (percentSuccessfulCon < 60 || responseTime > _maxTimeWaitReply) {
             changeProxy();
         }
     }
@@ -138,16 +138,16 @@ void HttpTransceiver::testingProxy()
 {
     QPair<bool, quint64> result;
     QVector<QPair<int, quint64>> tableTimeResponse;
-    QPair<QStringList, QStringList> proxyList;
+    QVector<std::shared_ptr<ProxySettings>> vecProxySettings;
 
-    if (!_listProxyServers.first.isEmpty() && !_listProxyServers.second.isEmpty()) {
+    if (!_vecProxySettings.isEmpty()) {
 
-        for (int i = 0; i < _listProxyServers.first.length(); ++i) {
-            result = _outHttpTrafficHandler->isConnected(_listProxyServers.first.at(i), _listProxyServers.second.at(i));
+        for (int i = 0; i < _vecProxySettings.length(); ++i) {
+            if(_vecProxySettings.at(i))
+                result = _outHttpTrafficHandler->isConnected(_vecProxySettings.at(i)->host, _vecProxySettings.at(i)->port);
 
             if (result.first) {
-                proxyList.first.append(_listProxyServers.first.at(i));
-                proxyList.second.append(_listProxyServers.second.at(i));
+                vecProxySettings.append(_vecProxySettings.at(i));
                 tableTimeResponse.push_back(QPair(i, result.second));
             }
         }
@@ -156,14 +156,13 @@ void HttpTransceiver::testingProxy()
             return p1.second < p2.second;
             });
 
-        _listProxyServers.first.clear();
-        _listProxyServers.second.clear();
+        _vecProxySettings.clear();
 
         for (int i = 0; i < tableTimeResponse.length(); ++i) {
-            for (int j = 0; j < proxyList.first.length(); ++j) {
+            for (int j = 0; j < _vecProxySettings.length(); ++j) {
                 if (tableTimeResponse.at(i).first == j) {
-                    _listProxyServers.first.append(proxyList.first.at(j));
-                    _listProxyServers.second.append(proxyList.second.at(j));
+                    if(vecProxySettings.at(j))
+                        _vecProxySettings.append(vecProxySettings.at(j));
                 }
             }
         }
@@ -173,10 +172,12 @@ void HttpTransceiver::testingProxy()
 
 void HttpTransceiver::setProxy()
 {
-    if (!_listProxyServers.first.isEmpty()) {
-        if ((_idxCurrentProxy + 1) <= _listProxyServers.first.length()) {
+    if (!_vecProxySettings.isEmpty()) {
+        if ((_idxCurrentProxy + 1) <= _vecProxySettings.length()) {
             _idxCurrentProxy += 1;
-            _outHttpTrafficHandler->setProxy(_listProxyServers.first.at(_idxCurrentProxy), _listProxyServers.second.at(_idxCurrentProxy).toInt(), "", "");
+
+            if(_vecProxySettings.at(_idxCurrentProxy))
+                _outHttpTrafficHandler->setProxy(_vecProxySettings.at(_idxCurrentProxy)->host, _vecProxySettings.at(_idxCurrentProxy)->port, _vecProxySettings.at(_idxCurrentProxy)->user, _vecProxySettings.at(_idxCurrentProxy)->password);
         }
     }
     else {
@@ -186,14 +187,19 @@ void HttpTransceiver::setProxy()
 
 void HttpTransceiver::changeProxy()
 {
-    if ((_idxCurrentProxy + 1) <= _listProxyServers.first.length()) {
-        _outHttpTrafficHandler->setProxy(_listProxyServers.first.at(_idxCurrentProxy + 1), _listProxyServers.second.at(_idxCurrentProxy + 1).toInt(), "", "");
+    if ((_idxCurrentProxy + 1) <= _vecProxySettings.length()) {
+        
+        if (_vecProxySettings.at(_idxCurrentProxy + 1))
+            _outHttpTrafficHandler->setProxy(_vecProxySettings.at(_idxCurrentProxy + 1)->host, _vecProxySettings.at(_idxCurrentProxy + 1)->port, _vecProxySettings.at(_idxCurrentProxy + 1)->user, _vecProxySettings.at(_idxCurrentProxy + 1)->password);
+        
         _idxCurrentProxy += 1;
 
     }
     else {
         _idxCurrentProxy = 0;
-        _outHttpTrafficHandler->setProxy(_listProxyServers.first.at(_idxCurrentProxy), _listProxyServers.second.at(_idxCurrentProxy).toInt(), "", "");
+
+        if(_vecProxySettings.at(_idxCurrentProxy))
+            _outHttpTrafficHandler->setProxy(_vecProxySettings.at(_idxCurrentProxy)->host, _vecProxySettings.at(_idxCurrentProxy)->port, _vecProxySettings.at(_idxCurrentProxy)->user, _vecProxySettings.at(_idxCurrentProxy)->password);
     }
         
 }
